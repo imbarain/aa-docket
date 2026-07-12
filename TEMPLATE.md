@@ -3,12 +3,14 @@
 The complete contract for a docket card. The HTML comment block below is the formal spec; the two examples at the end are copyable templates.
 
 <!--
-Layout: active/ and archived/
-  - active/   ← what you're tracking now: pending (under evaluation) + imported (in use)
-  - archived/ ← decided testimony: rejected + eol (end-of-life).
+Layout: capabilities/{active,archived}  (+ stateless kinds orchestrators/, surveys/)
+  - capabilities/active/   ← what you're tracking now: pending (under evaluation) + imported (in use)
+  - capabilities/archived/ ← decided testimony: rejected + eol (end-of-life).
                 Not a permanent seal; a card can be re-opened when its
                 re-assessment condition is met or the evidence changes.
   - validator scans these two subdirs, never recursing into hidden companion dirs.
+  - orchestrators/ and surveys/ are stateless kinds (no adopt/retire cycle),
+    reserved for future cards; this spec covers the capabilities state machine.
 
 Filename: <name>-<state>.md
   - <name>: all-lowercase kebab, owner prefix dropped, keep the project-identifying
@@ -30,7 +32,7 @@ Frontmatter fields:
                    Omit for non-GitHub sources (npm/PyPI/vendor site) or multi-source topics.
 
 Companion folder: a hidden `.name-state/` (stem matching the .md) placed next to its
-card in the same subdir (active/ or archived/). Holds detailed docs (per-model notes,
+card in the same subdir (capabilities/active/ or capabilities/archived/). Holds detailed docs (per-model notes,
 screenshots, HTML, clusters, ...). The validator flags a hidden dir with no matching
 .md as an orphan, and a non-hidden companion dir as a violation.
 

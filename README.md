@@ -28,38 +28,43 @@ The agent ecosystem moves fast — CLIs, skills, MCP servers, orchestrators, fra
 
 | state | meaning | lives in |
 |---|---|---|
-| `pending` | under evaluation, no decision yet | `active/` |
-| `imported` | adopted into the stack | `active/` |
-| `rejected` | evaluated, decision is no | `archived/` |
-| `eol` | was in the stack, now removed (end-of-life) | `archived/` |
+| `pending` | under evaluation, no decision yet | `capabilities/active/` |
+| `imported` | adopted into the stack | `capabilities/active/` |
+| `rejected` | evaluated, decision is no | `capabilities/archived/` |
+| `eol` | was in the stack, now removed (end-of-life) | `capabilities/archived/` |
 
 Archived cards are **decided testimony, not a permanent seal.** Re-open when a card's re-assessment condition is met — the original verdict was a single un-cross-checked model, its basis is now doubtful, or a stronger assessor / experimental method became available.
 
 ## Layout
 
 ```
-active/
-  <name>-pending.md          # + optional hidden companion  .<name>-pending/
-  <name>-imported.md
-archived/
-  <name>-rejected.md
-  <name>-eol.md
+capabilities/                # single-candidate skills / MCP / CLIs — the state machine above
+  active/
+    <name>-pending.md        # + optional hidden companion  .<name>-pending/
+    <name>-imported.md
+  archived/
+    <name>-rejected.md
+    <name>-eol.md
+orchestrators/               # systems you learn from but never install — stateless (reserved)
+surveys/                     # your own multi-source comparison reports — stateless (reserved)
 TEMPLATE.md                  # card format, naming, and body rules (the full spec)
 validate.py                  # mechanical validator
 tests/test_validate.sh
 ```
+
+`capabilities/` carries the lifecycle state machine (a candidate has an adopt / retire cycle). `orchestrators/` and `surveys/` are **stateless** kinds — no adopt / retire cycle — reserved for future cards; the validator does not yet impose rules on them.
 
 A card is one markdown file with YAML frontmatter. Its filename encodes `<name>-<state>`, which must agree with the frontmatter. Detailed per-model notes, screenshots, and clusters go in a hidden companion folder `.<name>-<state>/` next to the card. See **[TEMPLATE.md](./TEMPLATE.md)** for the full contract.
 
 ## Usage
 
 ```sh
-python3 validate.py .          # validate active/ + archived/
-python3 validate.py active/    # validate one subdir
-bash tests/test_validate.sh    # run the test suite
+python3 validate.py .                      # validate capabilities/{active,archived}
+python3 validate.py capabilities/active/   # validate one subdir
+bash tests/test_validate.sh                # run the test suite
 ```
 
-> On an empty repo (only `.gitkeep` in `active/` and `archived/`), the validator exits 1 with `no files to check` — add a card first.
+> On an empty repo (only `.gitkeep` in `capabilities/active/` and `capabilities/archived/`), the validator exits 1 with `no files to check` — add a card first.
 
 The validator checks, mechanically: filename ↔ frontmatter agreement, the state enum, `last_assessed` presence by state, body rules per state (pending = dated links only; decided = prose reasons), companion-folder hygiene (hidden, matched, no orphans), and that every relative link target exists. Card **prose is never validated and may be in any language** — only the state token is constrained to ASCII so filenames and tooling stay grep-friendly.
 
@@ -104,37 +109,43 @@ agent 生态演进极快 —— CLI、skill、MCP、orchestrator、framework 不
 
 | 状态 | 含义 | 存放 |
 |---|---|---|
-| `pending` | 评估中,未决 | `active/` |
-| `imported` | 已引入在用 | `active/` |
-| `rejected` | 已评估,否决 | `archived/` |
-| `eol` | 曾在用,已退役 | `archived/` |
+| `pending` | 评估中,未决 | `capabilities/active/` |
+| `imported` | 已引入在用 | `capabilities/active/` |
+| `rejected` | 已评估,否决 | `capabilities/archived/` |
+| `eol` | 曾在用,已退役 | `capabilities/archived/` |
 
 `archived/` 是**已决证词库,不是永久封存**。满足重评条件即可回迁重开:原裁决只有单模型未交叉、依据已存疑、或出现了更强的评估者 / 实验方法。
 
 ## 目录布局
 
 ```
-active/
-  <name>-pending.md          # + 可选隐藏 companion .<name>-pending/
-  <name>-imported.md
-archived/
-  <name>-rejected.md
-  <name>-eol.md
+capabilities/                # 单候选 skill / MCP / CLI —— 上面那套状态机
+  active/
+    <name>-pending.md        # + 可选隐藏 companion .<name>-pending/
+    <name>-imported.md
+  archived/
+    <name>-rejected.md
+    <name>-eol.md
+orchestrators/               # 只借鉴、从不安装的系统 —— 无状态(预留)
+surveys/                     # 自产的多源对比报告 —— 无状态(预留)
 TEMPLATE.md                  # 卡片格式 / 命名 / 正文规则(完整契约)
 validate.py                  # 机械校验
 tests/test_validate.sh
 ```
+
+`capabilities/` 承载上面的生命周期状态机(候选有采纳 / 退役周期)。`orchestrators/` 与 `surveys/` 是**无状态** kind —— 无采纳 / 退役周期 —— 预留给后续卡片;validator 暂不对它们施加规则。
 
 一张卡片就是一个带 YAML frontmatter 的 markdown 文件,文件名 `<name>-<state>`,必须与 frontmatter 一致。详细 per-model 笔记、截图、聚类放在 `.name-state/` 隐藏目录。完整契约见 **[TEMPLATE.md](./TEMPLATE.md)**。
 
 ## 用法
 
 ```sh
-python3 validate.py .          # 校验 active/ + archived/
-bash tests/test_validate.sh    # 跑测试
+python3 validate.py .                      # 校验 capabilities/{active,archived}
+python3 validate.py capabilities/active/   # 校验单个子目录
+bash tests/test_validate.sh                # 跑测试
 ```
 
-> 空仓库(`active/` 和 `archived/` 只有 `.gitkeep`)下,validator 会以 `no files to check` 退出 1 —— 先放一张卡片再校验。
+> 空仓库(`capabilities/active/` 和 `capabilities/archived/` 只有 `.gitkeep`)下,validator 会以 `no files to check` 退出 1 —— 先放一张卡片再校验。
 
 validator 机械校验:文件名↔frontmatter 一致、状态枚举、`last_assessed` 按状态、正文规则(pending 只放带日期的链接;已决须有 `## ` 理由段)、companion 目录卫生、以及所有相对链接目标存在。**正文散文不校验、任何语言都行**,只有状态 token 限 ASCII 以保证 grep 友好。卡片格式完整契约见 **[TEMPLATE.md](./TEMPLATE.md)**。
 
