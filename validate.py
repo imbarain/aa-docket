@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate docket cards under active/ and archived/.
+"""Validate docket cards under capabilities/{active,archived}.
 
 Layout: {active,archived}/*.md — active holds pending+imported,
 archived holds rejected+eol. A flat layout (*.md in one dir) is also
@@ -83,7 +83,7 @@ def split_doc(text: str) -> tuple[str | None, str]:
 
 
 def parse_yaml(frontmatter: str) -> dict | None:
-    """Use yq (already required by infra/lib/skill_frontmatter.py) to parse frontmatter."""
+    """Parse the frontmatter block with yq (see README Requirements)."""
     proc = subprocess.run(
         ["yq", "-o=json", "."],
         input=frontmatter,
@@ -228,8 +228,8 @@ def check_orphan_dirs(scan_root: Path, valid_stems: set[str]) -> list[str]:
     A non-hidden directory is itself a violation (convention is hidden-only);
     a hidden directory whose stem has no matching .md is an orphan.
     Run per scan-root (active/ or archived/ or a flat fixture dir), never on the
-    manifests/ root itself — that would flag the layout subdirs active/archived
-    as non-hidden.
+    capabilities/ or repo root itself — that would flag the layout subdirs
+    active/archived as non-hidden.
     """
     errors: list[str] = []
     for entry in scan_root.iterdir():
@@ -250,12 +250,14 @@ def check_orphan_dirs(scan_root: Path, valid_stems: set[str]) -> list[str]:
 
 
 def expand_scan_roots(paths: list[Path]) -> tuple[list[Path], list[str]]:
-    """Expand manifests root into its layout subdirs (active/, archived/).
+    """Expand the repo root into its capability layout subdirs (active/, archived/).
 
-    v2 layout: when a passed dir contains active/ and/or archived/, those are
-    the scan roots; the root itself (and its non-hidden nature) is exempt from
-    orphan checks. Dirs without the subdirs fall through unchanged so the
-    single-layer test fixtures keep working.
+    v3 layout: capability cards live under capabilities/{active,archived}/. When a
+    passed dir has a capabilities/ subdir it is the layout base; otherwise the dir
+    itself is (so the flat single-layer test fixtures keep working). Within the
+    base, active/ and/or archived/ become the scan roots; the base and repo root
+    (and their non-hidden nature) are exempt from orphan checks. orchestrators/ and
+    surveys/ are stateless kinds with no cards yet — they carry no scan rule here.
 
     Returns (scan_roots, errors). A dir that has layout subdirs but also stray
     top-level *.md (besides TEMPLATE.md) reports an error each — those would be
@@ -266,15 +268,17 @@ def expand_scan_roots(paths: list[Path]) -> tuple[list[Path], list[str]]:
     errors: list[str] = []
     for p in paths:
         if p.is_dir():
-            subdirs = [p / s for s in LAYOUT_SUBDIRS if (p / s).is_dir()]
+            cap = p / "capabilities"
+            base = cap if cap.is_dir() else p
+            subdirs = [base / s for s in LAYOUT_SUBDIRS if (base / s).is_dir()]
             if subdirs:
                 expanded.extend(subdirs)
                 strays = [
-                    f.name for f in p.glob("*.md") if f.name != "TEMPLATE.md"
+                    f.name for f in base.glob("*.md") if f.name != "TEMPLATE.md"
                 ]
                 for name in strays:
                     errors.append(
-                        f"{name}: stranded at root — v2 layout (active/archived/) "
+                        f"{name}: stranded outside active/archived/ — that layout "
                         f"is present, move it into the matching subdir or it is "
                         f"silently ignored"
                     )
@@ -285,7 +289,7 @@ def expand_scan_roots(paths: list[Path]) -> tuple[list[Path], list[str]]:
 
 def main(argv: list[str]) -> int:
     if not argv:
-        argv = ["manifests"]
+        argv = ["."]
 
     paths = [Path(p).expanduser() for p in argv]
     scan_roots, all_errors = expand_scan_roots(paths)
@@ -337,7 +341,7 @@ def main(argv: list[str]) -> int:
 
     checked = len(files)
     if all_errors:
-        print(f"✘ validate-manifests: {len(all_errors)} error(s) across {checked} file(s)")
+        print(f"✘ validate-docket: {len(all_errors)} error(s) across {checked} file(s)")
         for e in all_errors:
             print(f"  {e}")
         return 1
@@ -348,7 +352,7 @@ def main(argv: list[str]) -> int:
         assert m is not None
         state_tokens.append(m.group("state"))
     states = sorted(set(state_tokens))
-    print(f"✓ validate-manifests: {checked} file(s) ok, states={states}")
+    print(f"✓ validate-docket: {checked} file(s) ok, states={states}")
     return 0
 
 
