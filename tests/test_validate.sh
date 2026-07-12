@@ -221,7 +221,7 @@ out=$(python3 "$VALIDATOR" "$FIXTURE_DIR/pending-no-folder-link" 2>&1) || true
 echo "$out" | grep -q "does not link it" || fail "should reject pending missing the folder-self link"
 pass "pending without folder link rejected"
 
-# --- 16. v2 layout: manifests/{active,archived}/ auto-expanded, root not flagged orphan
+# --- 16. flat layout: active/archived/ auto-expanded, root not flagged orphan
 mkdir -p "$FIXTURE_DIR/v2-layout/active/.foo-pending" "$FIXTURE_DIR/v2-layout/archived"
 cat > "$FIXTURE_DIR/v2-layout/active/foo-pending.md" <<'EOF'
 ---
@@ -281,8 +281,34 @@ state: pending
 ---
 EOF
 out=$(python3 "$VALIDATOR" "$FIXTURE_DIR/stranded" 2>&1) || true
-echo "$out" | grep -q "stranded at root" || fail "should reject md stranded at root when active/archived exist"
+echo "$out" | grep -q "stranded outside active/archived" || fail "should reject md stranded outside active/archived when that layout exists"
 pass "stranded root-level md rejected (no silent skip)"
+
+# --- 19. v3 layout: capability cards nested under capabilities/{active,archived}
+mkdir -p "$FIXTURE_DIR/v3/capabilities/active/.foo-pending" "$FIXTURE_DIR/v3/capabilities/archived"
+mkdir -p "$FIXTURE_DIR/v3/orchestrators" "$FIXTURE_DIR/v3/surveys"
+cat > "$FIXTURE_DIR/v3/capabilities/active/foo-pending.md" <<'EOF'
+---
+name: foo
+state: pending
+---
+
+- [opus](./.foo-pending/opus.md) — 2026-06-24 · [📁](./.foo-pending/)
+EOF
+echo "# test" > "$FIXTURE_DIR/v3/capabilities/active/.foo-pending/opus.md"
+python3 "$VALIDATOR" "$FIXTURE_DIR/v3" >/dev/null || fail "v3 capabilities/ nesting should pass"
+pass "v3 capabilities/{active,archived} layout accepted"
+
+# --- 20. v3 layout: a card stranded at capabilities/ root must fail loud
+cat > "$FIXTURE_DIR/v3/capabilities/stray-pending.md" <<'EOF'
+---
+name: stray
+state: pending
+---
+EOF
+out=$(python3 "$VALIDATOR" "$FIXTURE_DIR/v3" 2>&1) || true
+echo "$out" | grep -q "stranded outside active/archived" || fail "should reject md stranded at capabilities/ root"
+pass "stranded capabilities/-root md rejected (no silent skip)"
 
 echo ""
 echo "✓ all docket-card validator tests passed"
