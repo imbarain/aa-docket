@@ -1,49 +1,49 @@
-# browser-harness 深评 — claude-fable-5, 2026-07-05
+# browser-harness deep review — claude-fable-5, 2026-07-05
 
-> 按五维（上游健康 / 功能差异化 / 最小实测 / 成本面 / 建议）执行；源码证据来自全历史 clone（431 commits）审读。
+> Executed along five dimensions (upstream health / functional differentiation / minimal hands-on test / cost surface / recommendation); source evidence comes from reading a full-history clone (431 commits).
 
-## 0. 定位
+## 0. Positioning
 
-browser-use 公司的新形态产品：不是「自带 LLM 循环的 agent」（那是 browser-use 早前的主产品线），而是反向的「LLM 直写 Python 代码说裸 CDP」的 harness——`run.py:180` 对 stdin 代码裸 `exec()`，daemon 长连真实 Chrome，helper 原语 508 行，另暴露 `cdp(method, **params)` 任意 CDP 调用。明确定位为装进 Claude Code / Codex 的 skill。
+A new-form product from the browser-use company: not an "agent with a built-in LLM loop" (that was browser-use's earlier flagship product line), but the reverse — a harness where "the LLM directly writes Python code speaking raw CDP." `run.py:180` bare-`exec()`s the code from stdin, a daemon holds a long-lived connection to a real Chrome, the helper primitives are 508 lines, and it additionally exposes `cdp(method, **params)` for arbitrary CDP calls. Explicitly positioned as a skill to drop into Claude Code / Codex.
 
-## 1. 上游健康度
+## 1. Upstream health
 
-- 仓库 2026-04-17 创建，评估时 2.5 个月龄；15.7k stars / 1.4k forks / 162 open issues / 60+ 贡献者。browser-use 母公司光环（主仓 102k stars、有 Cloud 商业线）——**母公司光环下 star 宜打 3 折看待**，且母公司资源 ≠ 本仓承诺。
-- 版本 0.1.4，classifier 明标 `Development Status :: 3 - Alpha`。
-- 节奏：5 月初 6 天 95 commits 爆发搭建 → 中旬起个位数、数周空档 → 6 月末小爆发；最后 push 2026-07-01。**爆发后冷却型**，非日更活跃仓。
-- 反常的好信号：测试 1,933 行 / 源码 2,978 行（≈65%），覆盖 daemon 生命周期、IPC token、PID 复用竞态——生产级心态。
+- Repo created 2026-04-17, 2.5 months old at assessment time; 15.7k stars / 1.4k forks / 162 open issues / 60+ contributors. Halo effect of the browser-use parent company (main repo 102k stars, has a commercial Cloud line) — **under a parent-company halo, discount the star count to ~30%**, and parent-company resources ≠ a commitment to this repo.
+- Version 0.1.4, classifier explicitly marks `Development Status :: 3 - Alpha`.
+- Cadence: a burst of 95 commits over 6 days in early May scaffolded it → single-digit commits from mid-month on, multi-week gaps → a small burst at end of June; last push 2026-07-01. **Burst-then-cooldown type**, not a daily-active repo.
+- A surprisingly good signal: tests 1,933 lines / source 2,978 lines (≈65%), covering the daemon lifecycle, IPC token, and PID-reuse races — a production-grade mindset.
 
-## 2. 功能差异化（对照同类浏览器驱动工具）
+## 2. Functional differentiation (vs. comparable browser-driving tools)
 
-主场景「驱动真实登录态 Chrome 做 ad-hoc 浏览器操作」与成熟的开源浏览器驱动工具（如 opencli 的 browser 模式）**重叠 ≥70%**：bind 真实 tab、eval JS、network 捕获、表单全家桶、extract，这类工具全有，且多已吸收 AX snapshot / refs 的可达性模式。
+The primary scenario "drive a real, logged-in Chrome for ad-hoc browser operations" **overlaps ≥70%** with mature open-source browser-driving tools (e.g. opencli's browser mode): bind to a real tab, eval JS, network capture, the full form family, extract — these tools all have them, and most have already absorbed the accessibility patterns of AX snapshot / refs.
 
-真实增量只有四点：
-1. **自由度**：裸 CDP + 任意 Python，无预制抽象——预制 adapter 失灵时理论上限更高；
-2. **自沉淀**：`agent_helpers.py` 每次调用动态 import、与核心 helper 平权 + `domain-skills/<host>/*.md` 散文 runbook（自带 97 个站点示例）——但 opencli 这类开源工具的 sitemap / adapter 体系（结构化 schema/verify/fixture）已覆盖同职责；
-3. `fetch-use` 反爬 HTTP 代理；
-4. Browser Use Cloud 远程浏览器（多数个人场景无此需求）。
+The genuine increment is only four points:
+1. **Degrees of freedom**: raw CDP + arbitrary Python, no pre-built abstractions — a theoretically higher ceiling when a pre-built adapter fails;
+2. **Self-accretion**: `agent_helpers.py` is dynamically imported on each call, on equal footing with the core helpers, plus `domain-skills/<host>/*.md` prose runbooks (ships with 97 site examples) — but the sitemap / adapter systems of open-source tools like opencli (structured schema/verify/fixture) already cover this same responsibility;
+3. `fetch-use`, an anti-scraping HTTP proxy;
+4. Browser Use Cloud remote browsers (most personal scenarios have no such need).
 
-结论：增量是「自由度」而非「能力面」，不构成「显著提升」的引入门槛。
+Conclusion: the increment is "degrees of freedom," not "capability surface," and does not constitute a "significant improvement" bar that justifies adoption.
 
-## 3. 最小实测
+## 3. Minimal hands-on test
 
-- 对仓库做静态安全扫描，命中的高危项集中在**一个根因**——官方链路以 `curl -fsSL https://browser-use.com/profile.sh | sh` 安装 profile-use（cookie 同步组件），这类「管道盲装」与可复现 / hermetic 依赖原则冲突。其余告警绝大多数是 Chrome UA 版本串（如 `Chrome/122.0.0.0`）被 IP 字面量规则误报的假阳。
-- `uvx --python 3.12 browser-harness --help` 临时环境跑通（12 包，隔离，无全局残留）。未做真实 Chrome 驱动实测——那需要给本机 Chrome 开 remote-debugging 授权面，引入未决前不开；源码 + 测试套件审读补位。
+- A static security scan of the repo — the high-severity hits it triggered concentrate on **one root cause**: the official path installs profile-use (the cookie-sync component) via `curl -fsSL https://browser-use.com/profile.sh | sh`, and this kind of "pipe-and-blindly-install" conflicts with the reproducible / hermetic-dependency principle. The vast majority of the remaining warnings are false positives — Chrome UA version strings (e.g. `Chrome/122.0.0.0`) misfired by IP-literal rules.
+- `uvx --python 3.12 browser-harness --help` ran in a throwaway environment (12 packages, isolated, no global residue). No real Chrome-driving test was done — that would require opening a remote-debugging authorization surface on the local Chrome, which I won't open for an undecided candidate; source + test-suite reading fills the gap.
 
-## 4. 成本面
+## 4. Cost surface
 
-- 安装形态干净：`uv tool install --python 3.12`（隔离 venv）+ `browser-harness skill > SKILL.md`；状态收敛在 `~/.config/browser-harness`。
-- **安全面是最大负项**：无沙箱裸 `exec`（设计如此，非疏漏）× 默认自动发现并直连用户真实 Chrome profile（硬编码 28 个 profile 路径扫描）= 注入或生成代码 bug 的爆炸半径为「真实登录会话 + 本机 shell 全权限」。护栏（登录墙 / MFA 停下问人）纯提示词约定，无技术强制。真实浏览器 profile 常驻登录态（银行 / 付费等）时风险不对称。
-- telemetry 默认开（opt-out，PostHog；脱敏黑名单较认真）。
-- token 面：skill 列表 +1，且与既有浏览器工具在同一意图上抢答 → 增加路由歧义。
+- Install form is clean: `uv tool install --python 3.12` (isolated venv) + `browser-harness skill > SKILL.md`; state converges under `~/.config/browser-harness`.
+- **The security surface is the biggest negative**: sandbox-less bare `exec` (by design, not an oversight) × auto-discovering and directly connecting to the user's real Chrome profile by default (hardcoded scan of 28 profile paths) = the blast radius of an injection or a bug in generated code is "a real logged-in session + full local shell privileges." The guardrails (login wall / stop-and-ask on MFA) are pure prompt conventions, no technical enforcement. When the real browser profile carries persistent login state (banking / paid accounts / etc.), the risk is asymmetric.
+- Telemetry on by default (opt-out, PostHog; the scrubbing blacklist is fairly conscientious).
+- Token surface: +1 in the skill list, and it competes for the same intent as existing browser tools → adds routing ambiguity.
 
-## 5. 建议（人拍板）
+## 5. Recommendation (human decides)
 
-**现阶段不引入。** 与成熟浏览器驱动工具主场景重叠 ≥70%，增量是自由度不是能力；换来的是裸 exec × 真实登录态的安全面、alpha 成熟度和 curl|sh 依赖链。
+**Do not adopt at this stage.** ≥70% overlap in the primary scenario with mature browser-driving tools; the increment is degrees of freedom, not capability. What you'd trade for it: a bare-exec × real-login-state security surface, alpha maturity, and a curl|sh dependency chain.
 
-**重评条件（满足任一）**：
-1. 发布 beta / 1.0 且出现代码执行沙箱或权限边界；
-2. opencli 这类主力开源浏览器工具停更 3 个月（届时其 adapter / sitemap 体系失去维护，harness 的「写代码自愈」模式价值反转）；
-3. 真实工作流中出现预制 adapter 反复失灵、且「写代码自愈」被证明是解法的具体案例（≥3 次）。
+**Re-assessment conditions (any one)**:
+1. A beta / 1.0 ships and a code-execution sandbox or permission boundary appears;
+2. A mainstream open-source browser tool like opencli goes 3 months without updates (at which point its adapter / sitemap system loses maintenance and the harness's "write-code-to-self-heal" model reverses in value);
+3. A concrete case appears in a real workflow where a pre-built adapter repeatedly fails and "write-code-to-self-heal" is proven to be the solution (≥3 times).
 
-值得白拿的想法（无需引入）：domain-skills 的「per-host 坑位 runbook」与结构化 sitemap 同构，其 97 个站点示例可当 sitemap 编写参考语料。
+An idea worth taking for free (no adoption needed): domain-skills' "per-host pitfall runbook" is isomorphic to a structured sitemap, and its 97 site examples can serve as reference corpus for writing sitemaps.
