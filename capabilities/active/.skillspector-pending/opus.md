@@ -1,30 +1,30 @@
 # NVIDIA/SkillSpector
 
-## 详细分析
+## Detailed analysis
 
-- 仓库: https://github.com/NVIDIA/SkillSpector
-- 定位: AI agent skill 引入前安全扫描器 — 64 patterns / 16 categories，LangGraph + 双阶段（静态 + LLM）架构
-- 末次评估: 2026-06-22  |  当时状态: Apache-2.0, 9.1k stars, Python 3.12 + YARA
-- 生态位: 与「引入前静态规则闸」一类工具同面
+- Repo: https://github.com/NVIDIA/SkillSpector
+- Positioning: pre-adoption security scanner for AI agent skills — 64 patterns / 16 categories, LangGraph + two-stage (static + LLM) architecture
+- Last assessed: 2026-06-22  |  State at the time: Apache-2.0, 9.1k stars, Python 3.12 + YARA
+- Niche: same surface as the "pre-adoption static-rule gate" class of tools
 
-## 顾虑
+## Concerns
 
-1. **与一类既有 intro-gate 工具高度重叠（≥70%）**：只要已经有一套 skill 引入前的静态规则闸，SkillSpector 的静态阶段就是重复能力
-2. **裁决哲学取舍**：LLM Stage 2 对 finding 有实质过滤权（决定哪些告警放行）。若威胁模型里「读敌意内容的 LLM 自身可被注入」是必须防的，那把否决权交给 LLM 阶段就不可接受——这是设计取向问题，需按各自威胁模型判断
-3. **不覆盖包生态恶意检测**：typosquat / 凭证窃取 / 维护者突变这类供应链面 SkillSpector 没有对等物；若拿它替换一套已含供应链检测的闸，是能力面降级
-4. **集成成本**：Python 3.12 + LangGraph + Docker + 多 LLM provider，重于一套纯静态规则闸
+1. **High overlap (≥70%) with an existing class of intro-gate tools**: as long as you already have a static-rule gate for pre-adoption of skills, SkillSpector's static stage is a duplicate capability
+2. **Adjudication-philosophy tradeoff**: LLM Stage 2 has substantive filtering power over findings (deciding which warnings pass). If your threat model must defend against "the LLM that reads hostile content can itself be injected," then handing veto power to the LLM stage is unacceptable — this is a design-orientation question to be judged against each threat model
+3. **Does not cover package-ecosystem malware detection**: SkillSpector has no equivalent for supply-chain surfaces like typosquatting / credential theft / maintainer-takeover; using it to replace a gate that already includes supply-chain detection is a capability-surface downgrade
+4. **Integration cost**: Python 3.12 + LangGraph + Docker + multiple LLM providers, heavier than a pure static-rule gate
 
-## 值得借鉴（无需引入即可白拿）
+## Worth borrowing (take for free, no adoption needed)
 
-- 它的 64-pattern / 16-category 清单是很好的「规则面盘点」参考语料：跨行污点流、MCP metadata unicode 投毒、Python AST 检测等面，可当自有规则集扩面时的思路来源
+- Its 64-pattern / 16-category list is a good "rule-surface inventory" reference corpus: surfaces like cross-line taint flow, MCP metadata unicode poisoning, Python AST detection, etc., can be a source of ideas when expanding your own rule set
 
-## 为什么是待审而非拒绝
+## Why pending rather than rejected
 
-单件重叠不等于永久无价值。保留复评路径，等以下任一条件满足再正式重评：
+Overlap on a single item doesn't equal permanent worthlessness. Keep a re-review path open; do a formal re-assessment when any of the following is met:
 
-- 想扩自有规则集时，回看其 64-pattern 清单有无新面思路
-- 出现可利用「跨行污点流 / MCP metadata / unicode 投毒」的真实恶意 skill 样本，需要成套检测能力
+- When you want to expand your own rule set, revisit its 64-pattern list for any new-surface ideas
+- A real malicious-skill sample appears that exploits "cross-line taint flow / MCP metadata / unicode poisoning," requiring a full detection suite
 
-## 评估记录
+## Assessment log
 
-- 2026-06-22：首次评估
+- 2026-06-22: first assessment
