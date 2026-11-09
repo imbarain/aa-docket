@@ -310,5 +310,12 @@ out=$(python3 "$VALIDATOR" "$FIXTURE_DIR/v3" 2>&1) || true
 echo "$out" | grep -q "stranded outside active/archived" || fail "should reject md stranded at capabilities/ root"
 pass "stranded capabilities/-root md rejected (no silent skip)"
 
+# --- 21. --list outputs summary table with card name, state, and date
+rm -f "$FIXTURE_DIR/v3/capabilities/stray-pending.md"
+list_out=$(python3 "$VALIDATOR" --list "$FIXTURE_DIR/v3" 2>&1) || fail "--list should succeed on valid v3 layout"
+echo "$list_out" | grep -q "foo" || fail "--list should include card name"
+echo "$list_out" | grep -q "2026-06-24" || fail "--list should extract pending assessment date"
+pass "--list summary table works"
+
 echo ""
 echo "✓ all docket-card validator tests passed"

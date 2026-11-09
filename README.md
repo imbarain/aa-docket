@@ -60,8 +60,17 @@ A card is one markdown file with YAML frontmatter. Its filename encodes `<name>-
 
 ```sh
 python3 validate.py .                      # validate capabilities/{active,archived}
+python3 validate.py --list .               # list all docket cards and states
 python3 validate.py capabilities/active/   # validate one subdir
 bash tests/test_validate.sh                # run the test suite
+```
+
+Or install as a standalone CLI tool via `uv` / `pipx`:
+
+```sh
+uv tool install git+https://github.com/imbarain/aa-docket
+aa-docket validate .
+aa-docket list .
 ```
 
 > On an empty repo (only `.gitkeep` in `capabilities/active/` and `capabilities/archived/`), the validator exits 1 with `no files to check` — add a card first.
@@ -141,6 +150,7 @@ tests/test_validate.sh
 
 ```sh
 python3 validate.py .                      # 校验 capabilities/{active,archived}
+python3 validate.py --list .               # 列出所有评估卡及其状态
 python3 validate.py capabilities/active/   # 校验单个子目录
 bash tests/test_validate.sh                # 跑测试
 ```

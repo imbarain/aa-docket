@@ -287,7 +287,55 @@ def expand_scan_roots(paths: list[Path]) -> tuple[list[Path], list[str]]:
     return expanded, errors
 
 
+def list_cards(argv: list[str]) -> int:
+    paths = [Path(p).expanduser() for p in (argv or ["."])]
+    scan_roots, all_errors = expand_scan_roots(paths)
+    if all_errors:
+        for e in all_errors:
+            print(f"  {e}", file=sys.stderr)
+        return 1
+
+    files = sorted(
+        f
+        for p in scan_roots
+        for f in (p.glob("*.md") if p.is_dir() else [p])
+        if f.name != "TEMPLATE.md"
+    )
+    if not files:
+        print("no files to list", file=sys.stderr)
+        return 1
+
+    rows: list[tuple[str, str, str, str]] = []
+    for f in files:
+        m = NAME_RE.match(f.name)
+        if not m:
+            continue
+        name, state = m.group("name"), m.group("state")
+        fm_str, body = split_doc(f.read_text(encoding="utf-8"))
+        fm = parse_yaml(fm_str) if fm_str else None
+        date_str = "-"
+        if fm and "last_assessed" in fm:
+            date_str = str(fm["last_assessed"])
+        else:
+            dates = [lm.group(3) for lm in LINK_LINE_RE.finditer(body)]
+            if dates:
+                date_str = max(dates)
+        source = str(fm.get("github", "-")) if fm else "-"
+        rows.append((name, state, date_str, source))
+
+    w_name = max((len(r[0]) for r in rows), default=4)
+    w_state = max((len(r[1]) for r in rows), default=5)
+    print(f"{'NAME':<{w_name}}  {'STATE':<{w_state}}  {'ASSESSED':<10}  SOURCE")
+    for name, state, date_str, source in rows:
+        print(f"{name:<{w_name}}  {state:<{w_state}}  {date_str:<10}  {source}")
+    return 0
+
+
 def main(argv: list[str]) -> int:
+    if argv and argv[0] in ("--list", "list"):
+        return list_cards(argv[1:])
+    if argv and argv[0] == "validate":
+        argv = argv[1:]
     if not argv:
         argv = ["."]
 
@@ -356,5 +404,9 @@ def main(argv: list[str]) -> int:
     return 0
 
 
+def cli_main() -> int:
+    return main(sys.argv[1:])
+
+
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(cli_main())
